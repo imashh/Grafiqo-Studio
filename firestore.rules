@@ -103,8 +103,15 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
-      allow update: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin()) && isValidUser(request.resource.data) && (isAdmin() || (request.resource.data.role != 'admin' && request.resource.data.tier == 'free' && request.resource.data.credits <= 10));
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (request.auth.uid == userId && 
+         request.resource.data.role == resource.data.role && 
+         request.resource.data.tier == resource.data.tier &&
+         request.resource.data.credits <= resource.data.credits &&
+         request.resource.data.get('subscriptionExpiresAt', 0) == resource.data.get('subscriptionExpiresAt', 0))
+      ) && isValidUser(request.resource.data);
       allow delete: if isAdmin();
     }
 

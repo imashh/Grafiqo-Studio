@@ -81,12 +81,23 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
     }
   };
 
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleApprove = async (request: ProRequest) => {
     setIsProcessing(request.id);
     try {
-      await updateDoc(doc(db, 'proRequests', request.id), { status: 'approved' });
       const user = users.find(u => u.uid === request.userId);
-      if (!user) return;
+      if (!user) {
+        showNotification('error', "User not found!");
+        setIsProcessing(null);
+        return;
+      }
 
       if (request.type === RequestType.PRO_UPGRADE) {
         const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
@@ -100,7 +111,11 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
           credits: (user.credits || 0) + (request.creditsToGrant || 0)
         });
       }
+      
+      await updateDoc(doc(db, 'proRequests', request.id), { status: 'approved' });
+      showNotification('success', 'Request approved successfully');
     } catch (error) {
+      showNotification('error', 'Failed to approve request');
       handleFirestoreError(error, OperationType.UPDATE, `proRequests/${request.id}`);
     } finally {
       setIsProcessing(null);
@@ -111,7 +126,9 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
     setIsProcessing(request.id);
     try {
       await updateDoc(doc(db, 'proRequests', request.id), { status: 'rejected' });
+      showNotification('success', 'Request rejected');
     } catch (error) {
+      showNotification('error', 'Failed to reject request');
       handleFirestoreError(error, OperationType.UPDATE, `proRequests/${request.id}`);
     } finally {
       setIsProcessing(null);
@@ -128,7 +145,9 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
       if (selectedUser?.uid === userId) {
         setSelectedUser({ ...selectedUser, credits: (selectedUser.credits || 0) + amount });
       }
+      showNotification('success', `Added ${amount} credits`);
     } catch (error) {
+      showNotification('error', 'Failed to add credits');
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
@@ -144,17 +163,23 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
       if (selectedUser?.uid === userId) {
         setSelectedUser({ ...selectedUser, credits: newCredits });
       }
+      showNotification('success', `Deducted ${amount} credits`);
     } catch (error) {
+      showNotification('error', 'Failed to deduct credits');
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
 
-  const handleRemoveUser = async (userId: string) => {
-    if (!window.confirm("Are you sure you want to remove this user? This action cannot be undone.")) return;
+  const confirmRemoveUser = async () => {
+    if (!userToDelete) return;
     try {
-      await deleteDoc(doc(db, 'users', userId));
+      await deleteDoc(doc(db, 'users', userToDelete));
+      showNotification('success', 'User removed successfully');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
+      showNotification('error', 'Failed to remove user');
+      handleFirestoreError(error, OperationType.DELETE, `users/${userToDelete}`);
+    } finally {
+      setUserToDelete(null);
     }
   };
 
@@ -166,8 +191,9 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
         bankDetails: newBankDetails,
         paymentQrCode: newQrCode
       }, { merge: true });
-      alert("Configuration updated successfully!");
+      showNotification('success', "Configuration updated successfully!");
     } catch (error) {
+      showNotification('error', 'Failed to update configuration');
       handleFirestoreError(error, OperationType.UPDATE, 'config/app');
     } finally {
       setIsSavingConfig(false);
@@ -194,7 +220,46 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
   });
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8">
+    <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8 relative">
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg border flex items-center gap-3 animate-in fade-in slide-in-from-top-2 ${
+          notification.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-red-500/10 border-red-500/20 text-red-500'
+        }`}>
+          {notification.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+          <p className="font-bold text-sm">{notification.message}</p>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4 text-red-500">
+              <AlertCircle className="w-6 h-6" />
+              <h3 className="text-lg font-black">Remove User</h3>
+            </div>
+            <p className="text-neutral-400 text-sm mb-6">
+              Are you sure you want to remove this user? This action cannot be undone and all their data will be lost.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setUserToDelete(null)}
+                className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 rounded-xl font-bold text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmRemoveUser}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
@@ -474,7 +539,7 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
                               <ExternalLink className="w-4 h-4 text-neutral-400" />
                             </button>
                             <button 
-                              onClick={() => handleRemoveUser(user.uid)}
+                              onClick={() => setUserToDelete(user.uid)}
                               className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg border border-red-500/10 transition-all"
                               title="Remove User"
                             >
@@ -546,8 +611,9 @@ const AdminDashboard: React.FC<{ config: AppConfig }> = ({ config }) => {
                     <div className="flex items-center gap-2">
                       <input 
                         type="number" 
+                        min="1"
                         value={creditAmount}
-                        onChange={(e) => setCreditAmount(parseInt(e.target.value) || 0)}
+                        onChange={(e) => setCreditAmount(Math.max(0, parseInt(e.target.value) || 0))}
                         className="w-16 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500"
                       />
                       <div className="flex gap-1">

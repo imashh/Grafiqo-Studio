@@ -55,7 +55,11 @@ const MainApp: React.FC<{ user: UserProfile; config: AppConfig; logout: () => vo
 
     if (user.credits < creditCost) {
       setError(`Insufficient credits. You need ${creditCost} credits but only have ${user.credits}.`);
-      setShowProModal(true);
+      if (user.tier === Tier.PRO) {
+        setShowBuyCreditsModal(true);
+      } else {
+        setShowProModal(true);
+      }
       return;
     }
 
@@ -81,19 +85,23 @@ const MainApp: React.FC<{ user: UserProfile; config: AppConfig; logout: () => vo
       
       setResults(newResults);
       
-      // Save to Firestore for admin view
-      for (const res of newResults) {
-        await addDoc(collection(db, 'generations'), res);
+      try {
+        // Save to Firestore for admin view
+        for (const res of newResults) {
+          await addDoc(collection(db, 'generations'), res);
+        }
+        
+        // Update user credits
+        await updateDoc(doc(db, 'users', user.uid), {
+          credits: user.credits - creditCost,
+          totalImagesGenerated: (user.totalImagesGenerated || 0) + (outputMode === OutputMode.IMAGE ? count : 0)
+        });
+      } catch (firestoreErr: any) {
+        handleFirestoreError(firestoreErr, OperationType.UPDATE, `users/${user.uid}`);
       }
-      
-      // Update user credits
-      await updateDoc(doc(db, 'users', user.uid), {
-        credits: user.credits - creditCost,
-        totalImagesGenerated: (user.totalImagesGenerated || 0) + (outputMode === OutputMode.IMAGE ? count : 0)
-      });
     } catch (err: any) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
-      setError("Generation failed. Please try again.");
+      console.error("Generation error:", err);
+      setError(err.message || "Generation failed. Please try again.");
     } finally {
       setIsGenerating(false);
     }
