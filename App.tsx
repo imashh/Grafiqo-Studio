@@ -24,6 +24,7 @@ import ConfigPanel from './components/ConfigPanel';
 import ProUpgradeModal from './components/ProUpgradeModal';
 import BuyCreditsModal from './components/BuyCreditsModal';
 import AdminDashboard from './components/AdminDashboard';
+import StudioVault from './components/StudioVault';
 
 import { cleanupExpiredGenerations } from './utils/cleanup';
 
@@ -43,6 +44,7 @@ const MainApp: React.FC<{ user: UserProfile; config: AppConfig; logout: () => vo
   const [error, setError] = useState<string | null>(null);
   const [showProModal, setShowProModal] = useState(false);
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
+  const [showVault, setShowVault] = useState(false);
   const navigate = useNavigate();
 
   const creditCost = outputMode === OutputMode.PROMPT ? count : count * 2;
@@ -195,7 +197,10 @@ const MainApp: React.FC<{ user: UserProfile; config: AppConfig; logout: () => vo
                     <h3 className="font-bold">Studio History</h3>
                   </div>
                   <p className="text-sm text-neutral-500 mb-6">View and download your previous generations from the studio vault.</p>
-                  <button className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                  <button 
+                    onClick={() => setShowVault(true)}
+                    className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                  >
                     Open Vault
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -293,6 +298,10 @@ const MainApp: React.FC<{ user: UserProfile; config: AppConfig; logout: () => vo
 
       {showBuyCreditsModal && (
         <BuyCreditsModal user={user} config={config} onClose={() => setShowBuyCreditsModal(false)} />
+      )}
+
+      {showVault && (
+        <StudioVault user={user} onClose={() => setShowVault(false)} />
       )}
     </div>
   );

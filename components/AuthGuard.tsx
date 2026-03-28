@@ -58,7 +58,9 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
               }
               setLoading(false);
             }, (err) => {
-              handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
+              if (auth.currentUser) {
+                handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
+              }
               setLoading(false);
             });
             return () => unsubscribeProfile();
