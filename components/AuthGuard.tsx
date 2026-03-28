@@ -29,7 +29,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   useEffect(() => {
     // Listen for App Config
     const unsubscribeConfig = onSnapshot(doc(db, 'config', 'app'), (snapshot) => {
-      const defaultKey = 'AIzaSyBuxcbl360JD_SlqoO2gd4X7s040BV_e9E';
+      const defaultKey = 'AIzaSyBBR1ZiBG84FVAtGHIF0nZUaw-O570q1CU';
       if (snapshot.exists()) {
         const data = snapshot.data() as AppConfig;
         setAppConfig({

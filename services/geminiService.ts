@@ -4,7 +4,7 @@ import { ShootMode, AspectRatio, Tier } from "../types";
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Always use the user-provided API key
-const API_KEY = "AIzaSyBuxcbl360JD_SlqoO2gd4X7s040BV_e9E";
+const API_KEY = "AIzaSyBBR1ZiBG84FVAtGHIF0nZUaw-O570q1CU";
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
