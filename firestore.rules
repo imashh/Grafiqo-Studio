@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - name: string (required)
+    //   - contactNumber: string (required)
+    //   - tier: string (required, enum: ["free", "pro"])
+    //   - role: string (required, enum: ["user", "admin"])
+    //   - credits: number (required)
+    //   - createdAt: number (required)
+    //   - totalImagesGenerated: number (required)
+    //   - subscriptionExpiresAt: number (optional)
+    //
+    // Collection: config
+    // Document ID: app
+    // Fields:
+    //   - geminiApiKey: string
+    //   - paymentQrCode: string
+    //   - bankDetails: string
+    //
+    // Collection: generations
+    // Document ID: {generationId}
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required)
+    //   - url: string (required)
+    //   - mode: string (required)
+    //   - createdAt: number (required)
+    //   - expiresAt: number (required)
+    //   - prompt: string (required)
+    //   - originalPrompt: string (optional)
+    //
+    // Collection: proRequests
+    // Document ID: {requestId}
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required)
+    //   - email: string (required)
+    //   - screenshotUrl: string (required)
+    //   - status: string (required, enum: ["pending", "approved", "rejected"])
+    //   - createdAt: number (required)
+    //   - type: string (required, enum: ["PRO_UPGRADE", "CREDIT_PURCHASE"])
+    //   - creditsToGrant: number (optional)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        ('email' in request.auth.token && (request.auth.token.email == "grafiqo.np@gmail.com" || request.auth.token.email == "v.divash@gmail.com")) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
+    }
+
+    function isValidUser(data) {
+      return (!('uid' in data) || data.uid is string) &&
+             (!('tier' in data) || data.tier in ['free', 'pro', 'FREE', 'PRO']) &&
+             (!('role' in data) || data.role in ['user', 'admin', 'USER', 'ADMIN']) &&
+             (!('credits' in data) || data.credits is number);
+    }
+
+    function isValidProRequest(data) {
+      return (!('userId' in data) || data.userId is string) &&
+             (!('status' in data) || data.status in ['pending', 'approved', 'rejected']) &&
+             (!('type' in data) || data.type in ['PRO_UPGRADE', 'CREDIT_PURCHASE']);
+    }
+
+    function isValidGeneration(data) {
+      return (!('userId' in data) || data.userId is string) &&
+             (!('url' in data) || data.url is string) &&
+             (!('mode' in data) || data.mode is string);
+    }
+
+    match /test/connection {
+      allow read: if isAuthenticated();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /config/app {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /generations/{generationId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId && isValidGeneration(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+    }
+    
+    match /proRequests/{requestId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId && isValidProRequest(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

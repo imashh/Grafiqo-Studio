@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user data, credits, and subscription status.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "tier": { "type": "string", "enum": ["free", "pro"] },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "credits": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "totalImagesGenerated": { "type": "number" },
+        "subscriptionExpiresAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "name", "contactNumber", "tier", "role", "credits", "createdAt"]
+    },
+    "AppConfig": {
+      "title": "App Configuration",
+      "description": "Stores global app settings like API keys and payment details.",
+      "type": "object",
+      "properties": {
+        "geminiApiKey": { "type": "string" },
+        "paymentQrCode": { "type": "string" },
+        "bankDetails": { "type": "string" }
+      }
+    },
+    "GeneratedImage": {
+      "title": "Generated Image",
+      "description": "Stores metadata about generated images.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "url": { "type": "string" },
+        "mode": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "expiresAt": { "type": "number" },
+        "prompt": { "type": "string" },
+        "originalPrompt": { "type": "string" }
+      },
+      "required": ["id", "userId", "url", "mode", "createdAt", "expiresAt", "prompt"]
+    },
+    "ProRequest": {
+      "title": "Pro Upgrade Request",
+      "description": "Stores user requests to upgrade to Pro tier.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "number" },
+        "type": { "type": "string", "enum": ["PRO_UPGRADE", "CREDIT_PURCHASE"] },
+        "creditsToGrant": { "type": "number" }
+      },
+      "required": ["id", "userId", "email", "screenshotUrl", "status", "createdAt", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/proRequests/{requestId}": {
+      "schema": "ProRequest",
+      "description": "Pro upgrade requests."
+    },
+    "/config/app": {
+      "schema": "AppConfig",
+      "description": "Global app configuration."
+    },
+    "/generations/{generationId}": {
+      "schema": "GeneratedImage",
+      "description": "User image generations."
+    }
+  }
+}
